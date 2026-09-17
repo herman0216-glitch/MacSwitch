@@ -14,9 +14,9 @@ codesign --verify --deep --strict --verbose=2 "$MACSWITCH_APP"
 lipo "$MACSWITCH_APP/Contents/MacOS/MacSwitch" -verify_arch arm64
 lipo "$MACSWITCH_APP/Contents/MacOS/MacSwitch" -verify_arch x86_64
 ditto -c -k --sequesterRsrc --keepParent "$MACSWITCH_APP" "$MACSWITCH_OUTPUT/MacSwitch-$MACSWITCH_VERSION-universal.zip"
-cp "$MACSWITCH_ROOT/docs/FIRST-RUN.txt" "$MACSWITCH_OUTPUT/首次启动说明.txt"
+cp "$MACSWITCH_ROOT/docs/FIRST-RUN.txt" "$MACSWITCH_OUTPUT/FIRST-RUN.txt"
 cp "$MACSWITCH_ROOT/LICENSE" "$MACSWITCH_OUTPUT/LICENSE.txt"
 cd "$MACSWITCH_OUTPUT"
-shasum -a 256 "MacSwitch-$MACSWITCH_VERSION-universal.dmg" "MacSwitch-$MACSWITCH_VERSION-universal.zip" '首次启动说明.txt' LICENSE.txt > SHA256SUMS.txt
+shasum -a 256 "MacSwitch-$MACSWITCH_VERSION-universal.dmg" "MacSwitch-$MACSWITCH_VERSION-universal.zip" FIRST-RUN.txt LICENSE.txt > SHA256SUMS.txt
 shasum -a 256 -c SHA256SUMS.txt
 echo "Release assets: $MACSWITCH_OUTPUT"

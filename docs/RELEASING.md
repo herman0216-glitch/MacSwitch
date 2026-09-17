@@ -10,4 +10,6 @@
 6. 在 GitHub 创建 Release，上传 DMG、ZIP、SHA256SUMS.txt、首次启动说明及 LICENSE.txt。发布说明必须明确最低系统版本、架构、签名/公证状态、权限与兼容限制。
 7. 下载已发布附件，核对其 SHA-256 与本地清单，确认 Release 指向对应源码标签。
 
+独立上传附件使用 ASCII 文件名（如 FIRST-RUN.txt），避免 GitHub 将纯中文名改写为 default.txt，导致校验清单文件名不匹配。DMG 卷内可保留中文说明文件名。
+
 首次启动使用 Apple 官方的“系统设置 → 隐私与安全性 → 仍要打开”单应用例外。当前本机启动验证不等于全新 Mac 上浏览器下载隔离属性和 Gatekeeper 流程的端到端验证。将来获得 Developer ID 后，可另行加入证书签名、公证及 stapling 流程。

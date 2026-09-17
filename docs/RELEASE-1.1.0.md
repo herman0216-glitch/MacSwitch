@@ -11,7 +11,8 @@
 - `spctl --assess --type execute`：拒绝，符合当前分发信任状态；未改变 Gatekeeper 设置。
 - `hdiutil verify`：DMG 校验通过；只读挂载后存在 MacSwitch.app、Applications 链接、首次启动说明、LICENSE.txt。
 - 将 DMG 中的应用复制至本地可写测试目录后启动成功，核对实际进程路径为该测试副本；真实设置界面显示 1.1.0（2）。README 三张设置截图来自这一 Release 副本，使用本机已有配置。
-- SHA256SUMS.txt 对 DMG、ZIP、首次启动说明与许可证的校验通过。GitHub 发布后还需下载附件并再次验证。
+- SHA256SUMS.txt 对 DMG、ZIP、首次启动说明与许可证的校验通过。上传 GitHub 后下载全部五个附件，逐一与本地发行文件比较，内容完全一致，校验清单全部通过。
+- GitHub 会改写纯中文上传文件名，因此托管的独立说明文件采用 `FIRST-RUN.txt`，校验清单同步使用此名；DMG 卷内仍为中文说明文件。main 上的打包脚本已同步该托管文件名，应用二进制与 v1.1.0 标签对应源码保持一致。
 
 ## 验证边界
 
