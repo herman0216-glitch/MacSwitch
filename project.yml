@@ -1,0 +1,71 @@
+name: MacSwitch
+options:
+  minimumXcodeGenVersion: 2.44.0
+  deploymentTarget:
+    macOS: "26.0"
+  developmentLanguage: zh-Hans
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  MacSwitch:
+    type: application
+    platform: macOS
+    sources:
+      - path: MacSwitch
+        excludes: [Resources/Info.plist, Resources/MacSwitch.entitlements]
+      - path: LICENSE
+        buildPhase: resources
+    info:
+      path: MacSwitch/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: MacSwitch
+        CFBundleShortVersionString: "1.1.0"
+        CFBundleVersion: "2"
+        LSUIElement: true
+        NSPrincipalClass: NSApplication
+        NSAppleEventsUsageDescription: MacSwitch 仅通过 System Events 切换系统深色或浅色外观。
+        NSAudioCaptureUsageDescription: MacSwitch 仅在开启应用音量控制时，在本机内存中处理正在播放的应用音频以调节音量，不保存或上传音频。
+        NSHighResolutionCapable: true
+        LSApplicationCategoryType: public.app-category.utilities
+    entitlements:
+      path: MacSwitch/Resources/MacSwitch.entitlements
+      properties:
+        com.apple.security.automation.apple-events: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.herman.MacSwitch
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        COMBINE_HIDPI_IMAGES: YES
+  MacSwitchTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [MacSwitchTests]
+    dependencies:
+      - target: MacSwitch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: local.herman.MacSwitchTests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  MacSwitch:
+    build:
+      targets:
+        MacSwitch: all
+        MacSwitchTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets: [MacSwitchTests]
+      gatherCoverageData: true
+      parallelizable: false
+    archive:
+      config: Release

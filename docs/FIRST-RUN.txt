@@ -1,0 +1,16 @@
+MacSwitch — macOS 26.0 或更新版本
+
+将 MacSwitch.app 拖到 Applications（应用程序），然后双击启动。
+应用常驻菜单栏，不显示 Dock 图标。点击菜单栏的双开关图标使用。
+
+当前版本尚未使用 Apple Developer ID 签名和公证，因此 macOS 第一次启动时可能提示无法验证开发者。
+发布包使用 ad-hoc 签名，不能验证开发者身份。
+
+如启动被拦截：关闭提示，进入“系统设置 → 隐私与安全性”，找到 MacSwitch 的被阻止说明，选择“仍要打开”，并按系统提示确认。
+仅在确认文件来自官方仓库 Release 且未被篡改时允许打开。
+无需关闭 Gatekeeper，无需修改全局安全设置。
+如果系统提示包含恶意软件或会损坏电脑，请停止打开并报告问题。
+
+Apple 官方说明：https://support.apple.com/zh-cn/102445
+项目与下载：https://github.com/herman0216-glitch/MacSwitch
+许可证：MIT（见仓库 LICENSE）。

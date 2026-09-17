@@ -1,0 +1,10 @@
+.DS_Store
+.build/
+build/
+dist/
+*.xcuserstate
+xcuserdata/
+*.xcresult/
+docs/desktop-baseline.json
+
+.codex/
