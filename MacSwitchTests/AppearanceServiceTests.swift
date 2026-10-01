@@ -3,146 +3,122 @@ import Testing
 
 @MainActor
 struct AppearanceServiceTests {
-    @Test func firstLaunchPrecedesPermissionAndWrite() async throws {
+    @Test func nativeSuccessReturnsConfirmedStateWithoutAutomation() async throws {
         let backend = MockAppearanceBackend()
-        let service = AppearanceService(backend: backend)
+        let driver = TransitionDriverSpy()
+        driver.completeImmediately = true
+        driver.onStart = { backend.darkMode = $0 }
+        let service = AppearanceService(backend: backend, transitionBackend: NativeAppearanceTransitionBackend(driver: driver))
         defer { service.shutdown() }
 
         let result = try await service.setEnabled(true)
-
-        #expect(backend.events == [.ensureRunning, .permission, .write(true), .read])
         #expect(result.isEnabled)
         #expect(result.availability == .available)
-    }
-
-    @Test func deniedPermissionPreventsWrite() async throws {
-        let backend = MockAppearanceBackend()
-        backend.permissionError = .unauthorized("模拟拒绝自动化授权")
-        let service = AppearanceService(backend: backend)
-        defer { service.shutdown() }
-
-        await #expect(throws: SwitchFailure.unauthorized("模拟拒绝自动化授权")) {
-            try await service.setEnabled(true)
-        }
-
-        #expect(backend.events == [.ensureRunning, .permission])
-        #expect(!backend.darkMode)
-    }
-
-    @Test func allowedOperationReturnsTheSystemReadback() async throws {
-        let backend = MockAppearanceBackend()
-        backend.darkMode = true
-        backend.isRunning = true
-        let service = AppearanceService(backend: backend)
-        defer { service.shutdown() }
-
-        let result = try await service.setEnabled(false)
-
-        #expect(!result.isEnabled)
-        #expect(result.detail == "跟随系统当前外观")
-        #expect(backend.events == [.ensureRunning, .permission, .write(false), .read])
-    }
-
-    @Test func revokedPermissionIsRecheckedBeforeTheNextWrite() async throws {
-        let backend = MockAppearanceBackend()
-        let service = AppearanceService(backend: backend)
-        defer { service.shutdown() }
-        _ = try await service.setEnabled(true)
-        backend.events.removeAll()
-        backend.permissionError = .unauthorized("模拟授权已撤销")
-
-        await #expect(throws: SwitchFailure.unauthorized("模拟授权已撤销")) {
-            try await service.setEnabled(false)
-        }
-
-        #expect(backend.events == [.ensureRunning, .permission])
-        #expect(try await service.read().isEnabled)
+        #expect(backend.events == [.read])
+        #expect(driver.callbacks.count == 1)
     }
 
     @Test(arguments: [false, true])
-    func scriptFailureLeavesActualSystemStateReadable(partiallyApplied: Bool) async throws {
+    func nativeTimeoutReadsBackWithoutRepeatingWrite(partiallyApplied: Bool) async throws {
         let backend = MockAppearanceBackend()
-        backend.scriptError = .failed("模拟脚本失败")
-        backend.applyBeforeScriptError = partiallyApplied
-        let service = AppearanceService(backend: backend)
+        let driver = TransitionDriverSpy()
+        driver.onStart = { if partiallyApplied { backend.darkMode = $0 } }
+        let native = NativeAppearanceTransitionBackend(driver: driver, timeout: .milliseconds(10))
+        let service = AppearanceService(backend: backend, transitionBackend: native)
         defer { service.shutdown() }
 
-        await #expect(throws: SwitchFailure.failed("模拟脚本失败")) {
-            try await service.setEnabled(true)
+        if partiallyApplied {
+            #expect(try await service.setEnabled(true).isEnabled)
+        } else {
+            await #expect(throws: SwitchFailure.failed("原生外观过渡回调超时。")) {
+                try await service.setEnabled(true)
+            }
         }
-        let actual = try await service.read()
-
-        #expect(actual.isEnabled == partiallyApplied)
-        #expect(backend.events == [.ensureRunning, .permission, .write(true), .read])
+        #expect(backend.darkMode == partiallyApplied)
+        #expect(backend.events == [.read])
+        #expect(!native.isAvailable)
+        driver.callbacks[0]()
+        await Task.yield()
+        #expect(driver.releaseCount == 1)
     }
 
-    @Test func readsNeverLaunchOrRequestPermission() async throws {
+    @Test func unconfirmedNativeCallbackFailsAndQuarantinesBackend() async {
         let backend = MockAppearanceBackend()
-        backend.permissionError = .unauthorized("读取不应触发此权限错误")
-        let service = AppearanceService(backend: backend)
+        let driver = TransitionDriverSpy()
+        driver.completeImmediately = true
+        let native = NativeAppearanceTransitionBackend(driver: driver)
+        let service = AppearanceService(backend: backend, transitionBackend: native)
         defer { service.shutdown() }
 
-        #expect(try await service.read().isEnabled == false)
+        await #expect(throws: SwitchFailure.failed("系统未确认外观变化，请刷新后重试。")) {
+            try await service.setEnabled(true)
+        }
+        #expect(!native.isAvailable)
+        #expect(!backend.darkMode)
+        #expect(backend.events.count >= 15)
+    }
+
+    @Test func missingNativeInterfaceIsUnsupportedWithoutAutomation() async throws {
+        let backend = MockAppearanceBackend()
+        let service = AppearanceService(backend: backend, transitionBackend: nil)
+        defer { service.shutdown() }
+
+        let state = try await service.read()
+        #expect(state.availability == .unsupported("原生外观接口不可用。"))
+        await #expect(throws: SwitchFailure.unsupported("原生外观接口不可用。")) {
+            try await service.setEnabled(true)
+        }
+        #expect(backend.events == [.read])
+    }
+
+    @Test func nativeFailureDoesNotBlockTheCoordinatorOrNextRequest() async {
+        let backend = MockAppearanceBackend()
+        let driver = TransitionDriverSpy()
+        let native = NativeAppearanceTransitionBackend(driver: driver, timeout: .milliseconds(10))
+        let service = AppearanceService(backend: backend, transitionBackend: native)
+        let coordinator = SwitchCoordinator(services: [service])
+        defer { coordinator.shutdown() }
+
+        coordinator.setEnabled(true, for: .appearance)
+        coordinator.setEnabled(false, for: .appearance)
+        await coordinator.waitUntilIdle()
+        #expect(!coordinator.isBusy)
+        #expect(coordinator.state(.appearance).pendingTarget == nil)
+        #expect(!coordinator.state(.appearance).displayedEnabled)
+        #expect(coordinator.state(.appearance).isUnsupported)
+        #expect(driver.callbacks.count == 1)
+    }
+
+    @Test func shutdownDuringTransitionDoesNotStartAnotherOperation() async {
+        let backend = MockAppearanceBackend()
+        let driver = TransitionDriverSpy()
+        let service = AppearanceService(backend: backend, transitionBackend: NativeAppearanceTransitionBackend(driver: driver))
+        let task = Task { try await service.setEnabled(true) }
+        while driver.callbacks.isEmpty { await Task.yield() }
+        service.shutdown()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(backend.events.isEmpty)
+    }
+
+    @Test func readsNeverChangeSystemAppearance() async throws {
+        let backend = MockAppearanceBackend()
+        let service = AppearanceService(backend: backend, transitionBackend: NativeAppearanceTransitionBackend(driver: TransitionDriverSpy()))
+        defer { service.shutdown() }
+
+        #expect(try await !service.read().isEnabled)
         backend.darkMode = true
         #expect(try await service.read().isEnabled)
-
-        #expect(service.id == .appearance)
         #expect(backend.events == [.read, .read])
-        #expect(!backend.isRunning)
-    }
-
-    @Test func launchFailureStopsBeforePermissionAndWrite() async throws {
-        let backend = MockAppearanceBackend()
-        backend.launchError = .failed("模拟启动失败")
-        let service = AppearanceService(backend: backend)
-        defer { service.shutdown() }
-
-        await #expect(throws: SwitchFailure.failed("模拟启动失败")) {
-            try await service.setEnabled(true)
-        }
-
-        #expect(backend.events == [.ensureRunning])
-        #expect(!backend.darkMode)
     }
 }
 
 @MainActor
 private final class MockAppearanceBackend: AppearanceBackend {
-    enum Event: Equatable {
-        case ensureRunning, permission, write(Bool), read
-    }
-
+    enum Event: Equatable { case read }
     var events: [Event] = []
     var darkMode = false
-    var isRunning = false
-    var launchError: SwitchFailure?
-    var permissionError: SwitchFailure?
-    var scriptError: SwitchFailure?
-    var applyBeforeScriptError = false
-
     func readDarkMode() -> Bool {
         events.append(.read)
         return darkMode
-    }
-
-    func ensureSystemEventsRunning() async throws {
-        events.append(.ensureRunning)
-        if let launchError { throw launchError }
-        isRunning = true
-    }
-
-    func requestAutomationPermission() async throws {
-        events.append(.permission)
-        guard isRunning else { throw SwitchFailure.failed("System Events 未运行（-600）") }
-        if let permissionError { throw permissionError }
-    }
-
-    func setDarkMode(_ enabled: Bool) async throws {
-        events.append(.write(enabled))
-        if let scriptError {
-            if applyBeforeScriptError { darkMode = enabled }
-            throw scriptError
-        }
-        darkMode = enabled
     }
 }

@@ -1,0 +1,17 @@
+{
+  "build" : "26A434",
+  "com.apple.WindowManager.EnableStandardClickToShowDesktop" : "0",
+  "com.apple.WindowManager.GloballyEnabled" : "1",
+  "com.apple.WindowManager.HideDesktop" : "0",
+  "com.apple.WindowManager.HideWidgets" : "absent",
+  "com.apple.WindowManager.StandardHideDesktopIcons" : "0",
+  "com.apple.WindowManager.StandardHideWidgets" : "0",
+  "com.apple.WindowManager.sha256" : "e1d6c3c1d6ca36bbe43e3677a78ca2e860470ea28245c526bd5bc39ffc685336",
+  "com.apple.dock.pids" : "1273",
+  "com.apple.dock.sha256" : "50efabd6c3b20b2b7e865550a9ac9b2201af3d17a83c64dd707a4aa71818bdfd",
+  "com.apple.finder.CreateDesktop" : "1",
+  "com.apple.finder.pids" : "1275",
+  "com.apple.finder.sha256" : "2f38dc90b434c7d2d6d2da5d75bb5103011ce98af9680fa80a0581226e8a7082",
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "sip" : "System Integrity Protection status: enabled."
+}

@@ -17,17 +17,17 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
+	<string>1.1.1</string>
 	<key>CFBundleVersion</key>
-	<string>2</string>
+	<string>3</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSUIElement</key>
 	<true/>
-	<key>NSAppleEventsUsageDescription</key>
-	<string>MacSwitch 仅通过 System Events 切换系统深色或浅色外观。</string>
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>MacSwitch 仅在开启应用音量控制时，在本机内存中处理正在播放的应用音频以调节音量，不保存或上传音频。</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>MacSwitch 仅在开启“隐藏桌面图标”时读取桌面项目列表并设置或清除隐藏标记，不读取、移动或上传文件内容。</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSPrincipalClass</key>

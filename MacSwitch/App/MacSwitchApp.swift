@@ -22,10 +22,10 @@ struct MacSwitchApp: App {
             CommandMenu("开关") {
                 ForEach(FeatureID.allCases) { feature in
                     Toggle(feature.title, isOn: Binding(
-                        get: { model.coordinator.state(feature).snapshot.isEnabled },
+                        get: { model.coordinator.state(feature).displayedEnabled },
                         set: { model.coordinator.setEnabled($0, for: feature) }
                     ))
-                    .disabled(model.coordinator.state(feature).isBusy || model.coordinator.state(feature).isUnsupported)
+                    .disabled((model.coordinator.state(feature).isBusy && feature != .appearance) || model.coordinator.state(feature).isUnsupported)
                 }
                 Divider()
                 Button("刷新系统状态") { model.coordinator.refreshAll() }
@@ -40,6 +40,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
         #if DEBUG
         let args = ProcessInfo.processInfo.arguments
+        if let index = args.firstIndex(of: "--cleaning-probe"), args.indices.contains(index + 1), args[index + 1].hasPrefix("/") {
+            CleaningValidation.show(resultURL: URL(fileURLWithPath: args[index + 1]))
+        }
         if let index = args.firstIndex(of: "--verify-audio"), args.indices.contains(index + 1), args[index + 1].hasPrefix("/") {
             Task { @MainActor in await AudioValidation.run(resultURL: URL(fileURLWithPath: args[index + 1])) }
         }

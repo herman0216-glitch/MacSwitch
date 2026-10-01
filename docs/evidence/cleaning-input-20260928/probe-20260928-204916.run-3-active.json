@@ -1,0 +1,36 @@
+{
+  "after" : {
+    "frontmostBundle" : "local.herman.MacSwitch",
+    "frontmostPID" : 39757,
+    "inputHealthy" : true,
+    "presentationOptions" : 32778,
+    "screens" : [
+      {
+        "frame" : "{{0, 0}, {1470, 956}}",
+        "name" : "内建视网膜显示器"
+      }
+    ]
+  },
+  "before" : {
+    "frontmostBundle" : "local.herman.MacSwitch",
+    "frontmostPID" : 39757,
+    "inputHealthy" : false,
+    "presentationOptions" : 0,
+    "screens" : [
+      {
+        "frame" : "{{0, 0}, {1470, 956}}",
+        "name" : "内建视网膜显示器"
+      }
+    ]
+  },
+  "build" : "26A428",
+  "eventCounts" : {
+
+  },
+  "physicalGestureAcceptance" : "NOT RUN \/ requires explicit human observations",
+  "pid" : 39757,
+  "reason" : "running",
+  "sequence" : 3,
+  "spaceChangeNotifications" : 0,
+  "time" : "2026-09-28T12:52:04Z"
+}

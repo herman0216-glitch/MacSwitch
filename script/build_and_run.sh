@@ -4,8 +4,8 @@ MACSWITCH_MODE="${1:-run}"
 MACSWITCH_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$MACSWITCH_ROOT"
 case "$MACSWITCH_MODE" in
-  run|--verify|--debug|--logs|--telemetry|--build-only) ;;
-  *) echo "usage: $0 [--verify|--debug|--logs|--telemetry|--build-only]" >&2; exit 2 ;;
+  run|--verify|--debug|--logs|--telemetry|--build-only|--desktop-probe) ;;
+  *) echo "usage: $0 [--verify|--debug|--logs|--telemetry|--build-only|--desktop-probe]" >&2; exit 2 ;;
 esac
 if pgrep -x MacSwitch >/dev/null; then
   pkill -TERM -x MacSwitch || true
@@ -35,7 +35,11 @@ case "$MACSWITCH_MODE" in
   --build-only) exit 0 ;;
   --debug) exec lldb -- "$MACSWITCH_ROOT/dist/MacSwitch.app/Contents/MacOS/MacSwitch" ;;
 esac
-open -n "$MACSWITCH_ROOT/dist/MacSwitch.app"
+if [[ "$MACSWITCH_MODE" == "--desktop-probe" ]]; then
+  open -n "$MACSWITCH_ROOT/dist/MacSwitch.app" --args --desktop-probe
+else
+  open -n "$MACSWITCH_ROOT/dist/MacSwitch.app"
+fi
 for ((attempt=0; attempt<50; attempt++)); do
   if pgrep -x MacSwitch >/dev/null; then break; fi
   sleep 0.1

@@ -3,6 +3,54 @@ import Testing
 
 @MainActor
 struct CoordinatorTests {
+    @Test func appearanceTargetIsImmediateAndDoesNotOverwriteSystemSnapshot() async {
+        let service = MockSwitchService()
+        let store = SwitchCoordinator(services: [service])
+        store.setEnabled(true, for: .appearance)
+        #expect(store.state(.appearance).pendingTarget == true)
+        #expect(store.state(.appearance).displayedEnabled)
+        #expect(!store.state(.appearance).snapshot.isEnabled)
+        #expect(store.state(.appearance).isBusy)
+        await store.waitUntilIdle()
+        #expect(store.state(.appearance).pendingTarget == nil)
+        #expect(store.state(.appearance).snapshot.isEnabled)
+    }
+
+    @Test func rapidClicksAndRefreshKeepLatestTargetAndSerializeWrites() async {
+        let service = MockSwitchService()
+        let store = SwitchCoordinator(services: [service])
+        store.setEnabled(true, for: .appearance)
+        store.refresh(.appearance)
+        store.setEnabled(false, for: .appearance)
+        store.toggle(.appearance)
+        #expect(store.state(.appearance).pendingTarget == true)
+        await store.waitUntilIdle()
+        #expect(service.writes == [true, false, true])
+        #expect(service.maximumConcurrentWrites == 1)
+        #expect(store.state(.appearance).pendingTarget == nil)
+        #expect(store.state(.appearance).displayedEnabled)
+    }
+
+    @Test func failedAppearanceRestoresReadbackAndClearsOptimisticTarget() async {
+        let service = MockSwitchService()
+        service.error = .unauthorized("拒绝")
+        let store = SwitchCoordinator(services: [service])
+        store.setEnabled(true, for: .appearance)
+        await store.waitUntilIdle()
+        #expect(store.state(.appearance).pendingTarget == nil)
+        #expect(!store.state(.appearance).displayedEnabled)
+        #expect(store.state(.appearance).phase == .unauthorized("拒绝"))
+    }
+
+    @Test func otherFeaturesKeepConfirmedPresentation() async {
+        let service = MockSwitchService(id: .desktop)
+        let store = SwitchCoordinator(services: [service])
+        store.setEnabled(true, for: .desktop)
+        #expect(store.state(.desktop).pendingTarget == nil)
+        #expect(!store.state(.desktop).displayedEnabled)
+        await store.waitUntilIdle()
+    }
+
     @Test func queuedTogglesUseActualStateAndNeverOverlap() async {
         let service = MockSwitchService()
         let store = SwitchCoordinator(services: [service])

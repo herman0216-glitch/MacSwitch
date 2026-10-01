@@ -18,25 +18,21 @@ targets:
     platform: macOS
     sources:
       - path: MacSwitch
-        excludes: [Resources/Info.plist, Resources/MacSwitch.entitlements]
+        excludes: [Resources/Info.plist]
       - path: LICENSE
         buildPhase: resources
     info:
       path: MacSwitch/Resources/Info.plist
       properties:
         CFBundleDisplayName: MacSwitch
-        CFBundleShortVersionString: "1.1.0"
-        CFBundleVersion: "2"
+        CFBundleShortVersionString: "1.1.1"
+        CFBundleVersion: "3"
         LSUIElement: true
         NSPrincipalClass: NSApplication
-        NSAppleEventsUsageDescription: MacSwitch 仅通过 System Events 切换系统深色或浅色外观。
         NSAudioCaptureUsageDescription: MacSwitch 仅在开启应用音量控制时，在本机内存中处理正在播放的应用音频以调节音量，不保存或上传音频。
+        NSDesktopFolderUsageDescription: MacSwitch 仅在开启“隐藏桌面图标”时读取桌面项目列表并设置或清除隐藏标记，不读取、移动或上传文件内容。
         NSHighResolutionCapable: true
         LSApplicationCategoryType: public.app-category.utilities
-    entitlements:
-      path: MacSwitch/Resources/MacSwitch.entitlements
-      properties:
-        com.apple.security.automation.apple-events: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: local.herman.MacSwitch

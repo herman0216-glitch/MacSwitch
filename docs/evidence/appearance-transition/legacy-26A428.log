@@ -1,0 +1,28 @@
+os=Version 27.0 (Build 26A428)
+screens=["Built-in Retina Display"] reduceMotion=false
+transition=@16@0:8
+postChangeNotification:completionHandler:=v32@0:8Q16@?24
+waitForTransitionWithCompletionHandler:=MISSING
+originalDark=false automatic=nil
+Timing values measure API/readback, NOT visible animation onset/end.
+{"callback_ms":56.277416668308433,"dark":true,"mode":"legacy","readback_ms":57.648125002742745,"return_ms":56.277583331393544,"sample":1}
+{"callback_ms":6.6503333364380524,"dark":false,"mode":"legacy","readback_ms":6.6751666672644205,"return_ms":6.6505833383416757,"sample":2}
+{"callback_ms":11.834541663120035,"dark":true,"mode":"legacy","readback_ms":15.667916668462567,"return_ms":11.83491666597547,"sample":3}
+{"callback_ms":7.3411249977652915,"dark":false,"mode":"legacy","readback_ms":7.3682083311723545,"return_ms":7.3413749996689148,"sample":4}
+{"callback_ms":6.6260416642762721,"dark":true,"mode":"legacy","readback_ms":6.6730416656355374,"return_ms":6.6262916661798954,"sample":5}
+{"callback_ms":10.493416666577104,"dark":false,"mode":"legacy","readback_ms":10.552625004493166,"return_ms":10.493833331565838,"sample":6}
+{"callback_ms":10.41816666838713,"dark":true,"mode":"legacy","readback_ms":10.472333335201256,"return_ms":10.418333338748198,"sample":7}
+{"callback_ms":9.6925000034389086,"dark":false,"mode":"legacy","readback_ms":9.7161250014323741,"return_ms":9.6929166684276424,"sample":8}
+{"callback_ms":8.5535833350149915,"dark":true,"mode":"legacy","readback_ms":14.494291666778736,"return_ms":8.5539583378704265,"sample":9}
+{"callback_ms":7.2944583371281624,"dark":false,"mode":"legacy","readback_ms":7.3792500043055043,"return_ms":7.2947500011650845,"sample":10}
+{"callback_ms":8.1075833368231542,"dark":true,"mode":"legacy","readback_ms":8.1307083382853307,"return_ms":8.1078333387267776,"sample":11}
+{"callback_ms":4.1944166659959592,"dark":false,"mode":"legacy","readback_ms":4.251374994055368,"return_ms":4.1946249984903261,"sample":12}
+{"callback_ms":4.1193750003003515,"dark":true,"mode":"legacy","readback_ms":4.151583336351905,"return_ms":4.1196666716132313,"sample":13}
+{"callback_ms":5.1775000029010698,"dark":false,"mode":"legacy","readback_ms":5.2354583312990144,"return_ms":5.1776249965769239,"sample":14}
+{"callback_ms":7.1514583396492526,"dark":true,"mode":"legacy","readback_ms":7.1797500058892183,"return_ms":7.1515416711918078,"sample":15}
+{"callback_ms":4.8258333335979842,"dark":false,"mode":"legacy","readback_ms":4.8534999950788915,"return_ms":4.8260416660923511,"sample":16}
+{"callback_ms":4.498374997638166,"dark":true,"mode":"legacy","readback_ms":4.515083332080394,"return_ms":4.4985416679992341,"sample":17}
+{"callback_ms":10.734666662756354,"dark":false,"mode":"legacy","readback_ms":10.790541666210629,"return_ms":10.734874995250721,"sample":18}
+{"callback_ms":14.161416664137505,"dark":true,"mode":"legacy","readback_ms":14.214666662155651,"return_ms":14.16179166699294,"sample":19}
+{"callback_ms":7.2268333315150812,"dark":false,"mode":"legacy","readback_ms":7.2629583301022649,"return_ms":7.2270416640094481,"sample":20}
+restored=true automaticUnchanged=true

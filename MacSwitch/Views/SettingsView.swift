@@ -30,14 +30,11 @@ struct SettingsView: View {
                 }
             } footer: { Text("MacSwitch 常驻菜单栏，不显示 Dock 图标。") }
             Section("权限与系统行为") {
-                Text("深色模式首次使用时请求自动化权限，仅用于控制 System Events 的外观设置。拒绝后仍可使用其他开关。")
-                Button("打开自动化权限设置") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") { NSWorkspace.shared.open(url) }
-                }
+                Text("深色模式使用系统原生外观接口，不请求自动化权限。系统版本不支持时会显示原因。")
                 Text("麦克风静音直接控制当前输入设备；日常使用不会录音，也不请求麦克风录制或辅助功能权限。")
                 Text("屏幕键盘清洁按需使用辅助功能权限。开启后只通过屏幕中央按钮退出；电源键与系统安全界面仍由 macOS 管理。")
                 Text("应用音量控制按需使用系统音频录制权限，仅在本机内存处理，不保存、不上传音频。关闭音量控制后停止处理并恢复原声。")
-                Text("隐藏桌面图标会短暂刷新 Finder，可能中断 Finder 中的选中或拖动状态。桌面文件始终保留原位。")
+                Text("隐藏桌面图标使用系统原生显隐方式；点击桌面时可临时显示图标，不会重启 Finder 或 Dock。桌面文件始终保留原位。")
                 Text("防休眠可阻止闲置休眠；合盖、主动睡眠或关机仍由系统处理。退出应用会释放防休眠。")
             }
             .font(.callout)
@@ -138,7 +135,7 @@ struct SettingsView: View {
                 .multilineTextAlignment(.center)
             Divider().padding(.vertical, 4)
             Text("本地运行 · 无账户 · 无联网服务").font(.callout).foregroundStyle(.secondary)
-            Text("桌面恢复：若 Finder 意外未刷新，可再次切换“隐藏桌面图标”，或在访达中重新打开桌面文件夹。详细恢复命令见随附使用说明。")
+            Text("桌面恢复：若提示旧版 CreateDesktop=false，请先按随附使用说明手动恢复 Finder 桌面；MacSwitch 不会自动重启 Finder。隐藏桌面图标开启时会为桌面项目设置隐藏标记，关闭开关即恢复。")
                 .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
         }
         .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)

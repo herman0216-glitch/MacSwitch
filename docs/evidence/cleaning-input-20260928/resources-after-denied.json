@@ -1,0 +1,37 @@
+{
+  "pid" : 39757,
+  "screens" : [
+    {
+      "height" : 956,
+      "name" : "Built-in Retina Display",
+      "width" : 1470,
+      "x" : 0,
+      "y" : 0
+    }
+  ],
+  "taps" : [
+
+  ],
+  "windows" : [
+    {
+      "bounds" : {
+        "Height" : 20,
+        "Width" : 66,
+        "X" : 748,
+        "Y" : 111
+      },
+      "layer" : 0,
+      "title" : "Window"
+    },
+    {
+      "bounds" : {
+        "Height" : 342,
+        "Width" : 560,
+        "X" : 742,
+        "Y" : 105
+      },
+      "layer" : 0,
+      "title" : "MacSwitch 清洁模式限时验证"
+    }
+  ]
+}

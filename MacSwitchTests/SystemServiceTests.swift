@@ -5,28 +5,100 @@ import Testing
 
 @MainActor
 struct SystemServiceTests {
-    @Test func desktopFailureRestoresAbsentPreference() async throws {
+    @Test func desktopEnableDisableAndRepeatedOperation() async throws {
         let backend = FakeDesktopBackend()
-        backend.failRestarts = 1
-        let service = DesktopService(backend: backend)
-        await #expect(throws: SwitchFailure.self) { try await service.setEnabled(true) }
-        #expect(backend.value == nil)
-        #expect(backend.writtenValues.count == 2)
-        #expect(backend.restarts == 2)
-        service.shutdown()
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()), verifiedBuilds: ["26A428"])
+
+        #expect(try await service.setEnabled(true).isEnabled)
+        #expect(backend.state == .target(hidden: true))
+        #expect(backend.writes.count == 2)
+        _ = try await service.setEnabled(true)
+        #expect(backend.writes.count == 2)
+        #expect(try await service.setEnabled(false).isEnabled == false)
+        #expect(backend.state == .target(hidden: false))
+        #expect(backend.writes.count == 4)
     }
 
-    @Test func desktopRoundTripAndNoOp() async throws {
+    @Test func desktopMissingPreferencesArePreservedWhenPartialWriteFails() async {
         let backend = FakeDesktopBackend()
-        let service = DesktopService(backend: backend)
-        let hidden = try await service.setEnabled(true)
-        #expect(hidden.isEnabled)
-        _ = try await service.setEnabled(true)
-        #expect(backend.restarts == 1)
-        let visible = try await service.setEnabled(false)
-        #expect(!visible.isEnabled)
-        #expect(backend.value == true)
-        service.shutdown()
+        backend.failWrites = [2]
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()), verifiedBuilds: ["26A428"])
+
+        await #expect(throws: SwitchFailure.self) { try await service.setEnabled(true) }
+        #expect(backend.state == DesktopPreferenceState(standardHideDesktopIcons: nil, hideDesktop: nil))
+        #expect(backend.writes.map(\.value) == [true, nil, nil])
+    }
+
+    @Test func desktopPartialStateIsOffAndExplained() async throws {
+        let backend = FakeDesktopBackend(state: .init(standardHideDesktopIcons: true, hideDesktop: false))
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()), verifiedBuilds: ["26A428"])
+
+        let state = try await service.read()
+        #expect(!state.isEnabled)
+        #expect(state.detail == "部分模式已隐藏")
+        #expect(state.availability == .available)
+    }
+
+    @Test func desktopReadbackMismatchRollsBackOriginalValues() async {
+        let original = DesktopPreferenceState(standardHideDesktopIcons: nil, hideDesktop: false)
+        let backend = FakeDesktopBackend(state: original)
+        backend.ignoreWrites = [2]
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()), verifiedBuilds: ["26A428"])
+
+        await #expect(throws: SwitchFailure.self) { try await service.setEnabled(true) }
+        #expect(backend.state == original)
+    }
+
+    @Test func desktopRollbackFailureReportsActualState() async {
+        let backend = FakeDesktopBackend()
+        backend.failWrites = [2, 3]
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()), verifiedBuilds: ["26A428"])
+
+        do {
+            _ = try await service.setEnabled(true)
+            Issue.record("Expected the desktop write to fail")
+        } catch {
+            #expect(error.localizedDescription.contains("恢复未完成"))
+            #expect(error.localizedDescription.contains("普通桌面=隐藏"))
+        }
+        #expect(backend.state == .init(standardHideDesktopIcons: true, hideDesktop: nil))
+    }
+
+    @Test func desktopExternalChangesAreReadWithoutWriting() async throws {
+        let backend = FakeDesktopBackend()
+        let files = FakeDesktopFileBackend(items: ["a": true])
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: files), verifiedBuilds: ["26A428"])
+        backend.state = .target(hidden: true)
+        files.manifest = DesktopHiddenManifest(items: [DesktopHiddenItem(path: files.path("a"))])
+
+        #expect(try await service.read().isEnabled)
+        #expect(backend.writes.isEmpty)
+    }
+
+    @Test func legacyFinderPreferenceBlocksWritesWithoutRestartingProcesses() async throws {
+        let backend = FakeDesktopBackend()
+        backend.createDesktop = false
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()), verifiedBuilds: ["26A428"])
+
+        let state = try await service.read()
+        #expect(state.availability == .unsupported("检测到旧版 CreateDesktop=false。请先按恢复说明恢复 Finder 桌面。"))
+        await #expect(throws: SwitchFailure.self) { try await service.setEnabled(true) }
+        #expect(backend.writes.isEmpty)
+    }
+
+    @Test func admittedBuildsCanReadAndUnknownBuildCannotWrite() async throws {
+        let backend = FakeDesktopBackend()
+        let service = DesktopService(backend: backend, files: DesktopFileHider(backend: FakeDesktopFileBackend()))
+        #expect(try await service.read().availability == .available)
+        backend.systemBuild = "26A434"
+        #expect(try await service.read().availability == .available)
+        #expect(backend.writes.isEmpty)
+        backend.systemBuild = "99Z999"
+
+        let state = try await service.read()
+        #expect(state.availability == .unsupported("当前系统版本（99Z999）尚未通过桌面交互验收，请在系统设置中管理桌面项目。"))
+        await #expect(throws: SwitchFailure.self) { try await service.setEnabled(true) }
+        #expect(backend.writes.isEmpty)
     }
 
     @Test func awakeCountdownExpirationAndRestartDefaultOff() async throws {
@@ -92,15 +164,30 @@ struct SystemServiceTests {
 }
 
 @MainActor private final class FakeDesktopBackend: DesktopBackend {
-    var value: Bool?
-    var writtenValues: [Bool?] = []
-    var failRestarts = 0
-    var restarts = 0
-    func preference() -> Bool? { value }
-    func write(_ value: Bool?) throws { self.value = value; writtenValues.append(value) }
-    func restartFinder() async throws {
-        restarts += 1
-        if failRestarts > 0 { failRestarts -= 1; throw SwitchFailure.failed("刷新失败") }
+    struct Write: Equatable { let key: DesktopPreferenceKey; let value: Bool? }
+    var systemBuild = "26A428"
+    var state: DesktopPreferenceState
+    var createDesktop: Bool? = true
+    var writes: [Write] = []
+    var failWrites: Set<Int> = []
+    var ignoreWrites: Set<Int> = []
+    private var attempts = 0
+
+    init(state: DesktopPreferenceState = .init(standardHideDesktopIcons: nil, hideDesktop: nil)) {
+        self.state = state
+    }
+
+    func preferences() -> DesktopPreferenceState { state }
+    func legacyCreateDesktop() -> Bool? { createDesktop }
+    func write(_ value: Bool?, for key: DesktopPreferenceKey) throws {
+        attempts += 1
+        if failWrites.contains(attempts) { throw SwitchFailure.failed("模拟写入失败") }
+        writes.append(Write(key: key, value: value))
+        guard !ignoreWrites.contains(attempts) else { return }
+        switch key {
+        case .standardHideDesktopIcons: state.standardHideDesktopIcons = value
+        case .hideDesktop: state.hideDesktop = value
+        }
     }
 }
 

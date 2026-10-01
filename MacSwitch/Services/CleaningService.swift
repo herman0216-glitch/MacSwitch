@@ -8,9 +8,12 @@ protocol CleaningBackend: AnyObject {
     var onFailure: (@MainActor (String) -> Void)? { get set }
     var onExit: (@MainActor () -> Void)? { get set }
     var isHealthy: Bool { get }
-    func start() throws
+    var unavailabilityReason: String? { get }
+    func start() async throws
     func stop()
 }
+
+extension CleaningBackend { var unavailabilityReason: String? { nil } }
 
 /// Owns the whole cleaning session. Startup is transactional: failure at any
 /// stage releases the event tap, windows, presentation options and power lease.
@@ -23,6 +26,7 @@ final class CleaningService: SwitchService {
     private(set) var isEnabled = false
     private var failure: String?
     private var stopped = false
+    private var session: UUID?
 
     init(backend: (any CleaningBackend)? = nil) {
         self.backend = backend ?? AppKitCleaningBackend()
@@ -39,22 +43,33 @@ final class CleaningService: SwitchService {
             stop()
             failure = "输入拦截已失效，清洁模式已自动退出。"
         }
-        return SwitchSnapshot(isEnabled: isEnabled, detail: failure ?? "黑屏清洁，点击屏幕中央按钮退出")
+        if let reason = backend.unavailabilityReason {
+            return SwitchSnapshot(isEnabled: false, detail: reason, availability: .unsupported(reason))
+        }
+        return SwitchSnapshot(isEnabled: isEnabled, detail: failure ?? "仅移动指针，点击屏幕中央按钮退出")
     }
 
     func setEnabled(_ enabled: Bool) async throws -> SwitchSnapshot {
         guard !stopped else { throw SwitchFailure.failed("清洁服务已停止。") }
         if enabled, !isEnabled {
+            if let reason = backend.unavailabilityReason { throw SwitchFailure.unsupported(reason) }
+            guard session == nil else { throw SwitchFailure.failed("清洁模式仍在启动。") }
+            let token = UUID()
+            session = token
             failure = nil
             // Suppress our Carbon handlers before creating any windows.
             onSessionChange?(true)
             do {
-                try backend.start()
-                guard backend.isHealthy else { throw SwitchFailure.failed("无法确认键盘拦截，未开启清洁模式。") }
+                try await backend.start()
+                guard !stopped, session == token else { throw SwitchFailure.failed("清洁模式启动已取消。") }
+                guard backend.isHealthy else { throw SwitchFailure.failed("无法确认完整输入保护，未开启清洁模式。") }
                 isEnabled = true
             } catch {
-                backend.stop()
-                onSessionChange?(false)
+                if session == token {
+                    session = nil
+                    backend.stop()
+                    onSessionChange?(false)
+                }
                 Logger(subsystem: "local.herman.MacSwitch", category: "Cleaning").error("Startup failed: \(error.localizedDescription, privacy: .public)")
                 throw error
             }
@@ -63,6 +78,7 @@ final class CleaningService: SwitchService {
     }
 
     private func stop() {
+        session = nil
         backend.stop()
         isEnabled = false
         onSessionChange?(false)
@@ -79,8 +95,8 @@ final class CleaningService: SwitchService {
 final class AppKitCleaningBackend: CleaningBackend {
     var onFailure: (@MainActor (String) -> Void)?
     var onExit: (@MainActor () -> Void)?
-    private var tap: CFMachPort?
-    private var source: CFRunLoopSource?
+    private let input: any CleaningInputBackend
+    private let prototype: Bool
     private var windows: [NSWindow] = []
     private var priorWindows: [(NSWindow, Bool)] = []
     private var priorApplication: NSRunningApplication?
@@ -89,40 +105,43 @@ final class AppKitCleaningBackend: CleaningBackend {
     private var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private var watchdog: Timer?
     private var running = false
+    private var generation: UUID?
+    private var starting = false
     private let logger = Logger(subsystem: "local.herman.MacSwitch", category: "Cleaning")
 
-    // NSEvent.systemDefined == 14 includes the media keys delivered to Quartz.
-    static let blockedTypes: Set<UInt32> = [CGEventType.keyDown.rawValue,
-        CGEventType.keyUp.rawValue, CGEventType.flagsChanged.rawValue, 14]
-    static let eventMask = blockedTypes.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1) }
-
-    var isHealthy: Bool {
-        running && AXIsProcessTrusted() && tap.map { CFMachPortIsValid($0) && CGEvent.tapIsEnabled(tap: $0) } == true
-            && windows.count == NSScreen.screens.count && !windows.isEmpty
+    init(input: any CleaningInputBackend = QuartzCleaningInputBackend(), prototype: Bool = false) {
+        self.input = input
+        self.prototype = prototype
+        input.onFailure = { [weak self] reason in self?.fail(reason) }
+        input.onExit = { [weak self] in self?.onExit?() }
     }
 
-    func start() throws {
+    var unavailabilityReason: String? {
+        CleaningCompatibility.unavailability(build: CleaningCompatibility.systemBuild,
+            hasCornerProtection: CleaningCompatibility.presentationOptions != nil, prototype: prototype)
+    }
+
+    var isHealthy: Bool {
+        running && AXIsProcessTrusted() && input.isHealthy && NSApp.isActive
+            && CleaningCompatibility.presentationOptions.map { NSApp.presentationOptions.isSuperset(of: $0) } == true
+            && windows.count == NSScreen.screens.count && !windows.isEmpty
+            && windows.allSatisfy { $0.isVisible && $0.screen != nil }
+    }
+
+    func start() async throws {
+        guard !starting else { throw SwitchFailure.failed("清洁模式仍在启动。") }
         guard !running else { return }
+        if let reason = unavailabilityReason { throw SwitchFailure.unsupported(reason) }
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         guard AXIsProcessTrustedWithOptions(options) else {
             throw SwitchFailure.unauthorized("清洁模式需要辅助功能权限。请在系统设置中允许 MacSwitch，然后重试。")
         }
+        let token = UUID()
+        generation = token
+        starting = true
+        defer { if generation == token { starting = false } }
         do {
-            let context = Unmanaged.passUnretained(self).toOpaque()
-            guard let newTap = CGEvent.tapCreate(tap: .cghidEventTap, place: .headInsertEventTap,
-                options: .defaultTap, eventsOfInterest: Self.eventMask,
-                callback: cleaningEventCallback, userInfo: context) else {
-                throw SwitchFailure.unauthorized("无法建立主动键盘拦截。请检查辅助功能权限后重试。")
-            }
-            tap = newTap
-            guard let newSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, newTap, 0) else {
-                throw SwitchFailure.failed("无法启动键盘拦截事件循环。")
-            }
-            source = newSource
-            CFRunLoopAddSource(CFRunLoopGetMain(), newSource, .commonModes)
-            CGEvent.tapEnable(tap: newTap, enable: true)
-            guard CGEvent.tapIsEnabled(tap: newTap) else { throw SwitchFailure.failed("键盘拦截未启用。") }
-            try verifyEventMask()
+            try input.start()
             var id: IOPMAssertionID = 0
             guard IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
                 IOPMAssertionLevel(kIOPMAssertionLevelOn), "MacSwitch - Cleaning" as CFString, &id) == kIOReturnSuccess else {
@@ -131,6 +150,12 @@ final class AppKitCleaningBackend: CleaningBackend {
             assertion = id
             priorApplication = NSWorkspace.shared.frontmostApplication
             priorPresentation = NSApp.presentationOptions
+            guard let protection = CleaningCompatibility.presentationOptions else {
+                throw SwitchFailure.unsupported("当前系统缺少触发角保护。")
+            }
+            // Use a known-valid combination; preserve the original option set
+            // verbatim for exit instead of mixing mutually exclusive hide flags.
+            NSApp.presentationOptions = protection
             priorWindows = NSApp.windows.filter { $0.isVisible }.map { ($0, $0.isKeyWindow) }
             for (window, _) in priorWindows { window.orderOut(nil) }
             running = true
@@ -145,14 +170,30 @@ final class AppKitCleaningBackend: CleaningBackend {
             observe(NSWorkspace.shared.notificationCenter, NSWorkspace.screensDidSleepNotification) { [weak self] in
                 self?.fail("显示器已睡眠，清洁模式已退出。", restoringFocus: false)
             }
+            observe(NotificationCenter.default, NSApplication.didResignActiveNotification) { [weak self] in
+                self?.fail("前台保护已失效，清洁模式已自动退出。", restoringFocus: false)
+            }
+            observe(NSWorkspace.shared.notificationCenter, NSWorkspace.activeSpaceDidChangeNotification) { [weak self] in
+                self?.fail("检测到桌面空间变化，清洁模式已退出；当前手势保护未通过验证。", restoringFocus: false)
+            }
+            // Activation is asynchronous, especially for accessory apps. Each
+            // continuation belongs to one transaction and cannot stop its successor.
+            for _ in 0..<30 where generation == token && running && !NSApp.isActive {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            guard generation == token, running else { throw SwitchFailure.failed("清洁模式启动已取消。") }
+            guard NSApp.isActive else { throw SwitchFailure.failed("无法取得前台触发角保护，未开启清洁模式。") }
             watchdog = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self, self.running else { return }
-                    if !self.isHealthy { self.fail("权限或输入拦截已失效，清洁模式已自动退出。") }
+                    if !self.isHealthy { self.fail("权限、输入拦截或前台保护已失效，清洁模式已自动退出。", restoringFocus: false) }
                 }
             }
             if let watchdog { RunLoop.main.add(watchdog, forMode: .common) }
-        } catch { stop(); throw error }
+        } catch {
+            if generation == token { stop() }
+            throw error
+        }
     }
 
     func stop() { stop(restoringFocus: true) }
@@ -162,15 +203,17 @@ final class AppKitCleaningBackend: CleaningBackend {
             logger.info("Cleanup begin masks=\(self.windows.count) restoreFocus=\(restoringFocus)")
         }
         running = false
+        generation = nil
+        starting = false
         watchdog?.invalidate(); watchdog = nil
         for (center, observer) in observers { center.removeObserver(observer) }
         observers.removeAll()
-        // Remove the blackout before releasing keyboard interception.
+        input.replaceTargets([])
+        // Remove the blackout before releasing interception. The accepted exit
+        // mouse-up has already been swallowed by the independent input backend.
         retireWindows(windows)
         windows.removeAll()
-        if let tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
-        if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
-        source = nil; tap = nil
+        input.stop()
         if let assertion { IOPMAssertionRelease(assertion) }
         assertion = nil
         if let priorPresentation { NSApp.presentationOptions = priorPresentation }
@@ -183,13 +226,17 @@ final class AppKitCleaningBackend: CleaningBackend {
         }
         self.priorApplication = nil
         priorWindows.removeAll()
-        logger.info("Cleanup complete masks=0 tapReleased=\(self.tap == nil) assertionReleased=\(self.assertion == nil)")
+        logger.info("Cleanup complete masks=0 assertionReleased=\(self.assertion == nil)")
     }
 
     private func rebuildWindows() throws {
         guard !NSScreen.screens.isEmpty else { throw SwitchFailure.failed("没有可遮罩的显示器，清洁模式已退出。") }
+        let screens = NSScreen.screens
+        let primaryTop = screens[0].frame.maxY
+        input.replaceTargets([]) // a display change cancels any in-flight click
         var replacement: [NSWindow] = []
-        for screen in NSScreen.screens {
+        var targets: [CleaningExitTarget] = []
+        for screen in screens {
             let window = CleaningWindow(contentRect: screen.frame, styleMask: [.borderless], backing: .buffered, defer: false)
             window.setFrame(screen.frame, display: true)
             window.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.screenSaverWindow)))
@@ -207,14 +254,23 @@ final class AppKitCleaningBackend: CleaningBackend {
             window.acceptsMouseMovedEvents = true
             window.title = "MacSwitch 清洁模式"
             let view = CleaningMaskView(frame: NSRect(origin: .zero, size: screen.frame.size))
-            view.exit = { [weak self] in self?.onExit?() }
             window.contentView = view
+            view.layoutSubtreeIfNeeded()
+            let screenRect = window.convertToScreen(view.exitButtonRectInWindow)
+            guard let displayID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? UInt32,
+                  screenRect.width > 0, screenRect.height > 0 else {
+                retireWindows(replacement + [window])
+                throw SwitchFailure.failed("无法定位显示器退出按钮，清洁模式已退出。")
+            }
+            targets.append(CleaningExitTarget(displayID: displayID,
+                rect: CleaningCoordinates.quartzRect(fromAppKit: screenRect, primaryScreenTop: primaryTop)))
             window.orderFrontRegardless()
             replacement.append(window)
         }
         // Cover a newly attached screen before retiring previous masks.
         let old = windows
         windows = replacement
+        input.replaceTargets(targets)
         if old.isEmpty { NSApp.activate(ignoringOtherApps: true) }
         if NSApp.isActive { windows.first?.makeKeyAndOrderFront(nil) }
         retireWindows(old)
@@ -235,35 +291,10 @@ final class AppKitCleaningBackend: CleaningBackend {
     }
 
     private func fail(_ reason: String, restoringFocus: Bool = true) {
+        guard running else { return }
         logger.info("Ending session: \(reason, privacy: .public)")
         stop(restoringFocus: restoringFocus)
         onFailure?(reason)
-    }
-
-    private func verifyEventMask() throws {
-        var count: UInt32 = 0
-        guard CGGetEventTapList(0, nil, &count) == .success, count > 0 else {
-            throw SwitchFailure.failed("无法核对输入拦截范围，未开启清洁模式。")
-        }
-        var taps = [CGEventTapInformation](repeating: CGEventTapInformation(), count: Int(count))
-        let result = taps.withUnsafeMutableBufferPointer { CGGetEventTapList(count, $0.baseAddress, &count) }
-        for item in taps.prefix(Int(count)) where item.tappingProcess == getpid() {
-            Logger(subsystem: "local.herman.MacSwitch", category: "Cleaning").info("tap enabled=\(item.enabled) mask=\(item.eventsOfInterest) expected=\(Self.eventMask)")
-        }
-        guard result == .success, taps.prefix(Int(count)).contains(where: {
-            $0.tappingProcess == getpid() && $0.enabled && $0.options == .defaultTap
-                && $0.eventsOfInterest & Self.eventMask == Self.eventMask
-        }) else {
-            throw SwitchFailure.failed("系统未授予完整的键盘拦截范围，未开启清洁模式。")
-        }
-    }
-
-    fileprivate func filterEvent(_ type: CGEventType) -> Bool {
-        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-            fail("输入拦截已被系统停用，清洁模式已自动退出。")
-            return false
-        }
-        return Self.blockedTypes.contains(type.rawValue)
     }
 
     private func observe(_ center: NotificationCenter, _ name: Notification.Name, action: @escaping @MainActor () -> Void) {
@@ -287,15 +318,6 @@ enum CleaningWindowPresentation {
     }
 }
 
-// The CFMachPort source is installed exclusively on the main run loop.
-private func cleaningEventCallback(_ proxy: CGEventTapProxy, _ type: CGEventType,
-    _ event: CGEvent, _ info: UnsafeMutableRawPointer?) -> Unmanaged<CGEvent>? {
-    guard let info else { return Unmanaged.passUnretained(event) }
-    let owner = Unmanaged<AppKitCleaningBackend>.fromOpaque(info).takeUnretainedValue()
-    let discard = MainActor.assumeIsolated { owner.filterEvent(type) }
-    return discard ? nil : Unmanaged.passUnretained(event)
-}
-
 private final class CleaningWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -305,8 +327,8 @@ private final class CleaningWindow: NSWindow {
 }
 
 private final class CleaningMaskView: NSView {
-    var exit: (() -> Void)?
     private let button = MouseOnlyCleaningButton(title: "退出清洁模式", target: nil, action: nil)
+    var exitButtonRectInWindow: NSRect { button.convert(button.bounds, to: nil) }
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -319,8 +341,8 @@ private final class CleaningMaskView: NSView {
         button.bezelStyle = .rounded
         button.setButtonType(.momentaryPushIn)
         button.controlSize = .large
-        button.target = self
-        button.action = #selector(exitClicked)
+        // The visual button never receives a forwarded click. Only the global
+        // input whitelist can recognize a complete, consumed exit click.
         button.setAccessibilityIdentifier("cleaning.exit")
         let stack = NSStackView(views: [icon, button])
         stack.orientation = .vertical
@@ -343,7 +365,6 @@ private final class CleaningMaskView: NSView {
     override func otherMouseDown(with event: NSEvent) {}
     override func scrollWheel(with event: NSEvent) {}
     override func keyDown(with event: NSEvent) {}
-    @objc private func exitClicked() { exit?() }
 }
 
 private final class MouseOnlyCleaningButton: NSButton {

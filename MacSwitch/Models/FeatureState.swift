@@ -23,7 +23,10 @@ struct FeatureState {
     var snapshot = SwitchSnapshot(isEnabled: false)
     var phase: OperationPhase = .idle
     var hasRead = false
-    var isBusy: Bool { phase == .working }
+    // Only appearance uses optimistic presentation; snapshot remains system truth.
+    var pendingTarget: Bool?
+    var displayedEnabled: Bool { pendingTarget ?? snapshot.isEnabled }
+    var isBusy: Bool { phase == .working || pendingTarget != nil }
     var isUnsupported: Bool {
         if case .unsupported = snapshot.availability { return true }
         return false

@@ -36,6 +36,15 @@ final class SwitchCoordinator {
         if case .refresh = command,
            queues[id, default: []].contains(where: { if case .refresh = $0 { true } else { false } }) { return }
         queues[id, default: []].append(command)
+        if id == .appearance {
+            switch command {
+            case .set(let value): states[id]?.pendingTarget = value
+            case .toggle:
+                let target = !state(id).displayedEnabled
+                states[id]?.pendingTarget = target
+            case .refresh, .restartIfEnabled: break
+            }
+        }
         guard workers[id] == nil else { return }
         workers[id] = Task { [weak self] in await self?.drain(id) }
     }
@@ -44,6 +53,7 @@ final class SwitchCoordinator {
         guard let service = services[id] else { workers[id] = nil; return }
         while !queues[id, default: []].isEmpty {
             let command = queues[id]!.removeFirst()
+            defer { reconcilePendingTarget(for: id) }
             if case .refresh = command {
                 do {
                     let snapshot = try await service.read()
@@ -106,6 +116,20 @@ final class SwitchCoordinator {
         workers[id] = nil
     }
 
+    private func reconcilePendingTarget(for id: FeatureID) {
+        guard id == .appearance else { return }
+        var value = state(id).snapshot.isEnabled
+        var pending: Bool?
+        for command in queues[id, default: []] {
+            switch command {
+            case .set(let requested): value = requested; pending = value
+            case .toggle: value.toggle(); pending = value
+            case .refresh, .restartIfEnabled: break
+            }
+        }
+        states[id]?.pendingTarget = pending
+    }
+
     private func apply(_ error: Error, to id: FeatureID) {
         switch error {
         case SwitchFailure.unauthorized(let reason): states[id]?.phase = .unauthorized(reason)
@@ -128,5 +152,6 @@ final class SwitchCoordinator {
         // Let an in-flight operation finish (including Finder rollback), but
         // discard commands that have not started after the user chose Quit.
         queues.removeAll()
+        states[.appearance]?.pendingTarget = nil
     }
 }

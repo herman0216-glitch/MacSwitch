@@ -1,0 +1,24 @@
+[
+  {
+    "connection" : 935291,
+    "name" : "self-alpha-zero",
+    "observed" : {
+      "alpha" : 0,
+      "alphaError" : 0,
+      "orderError" : 0,
+      "ordered" : 1
+    },
+    "returnCode" : 0
+  },
+  {
+    "connection" : 935291,
+    "name" : "self-order-out",
+    "observed" : {
+      "alpha" : 0,
+      "alphaError" : 0,
+      "orderError" : 0,
+      "ordered" : 0
+    },
+    "returnCode" : 0
+  }
+]

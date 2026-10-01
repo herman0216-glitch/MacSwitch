@@ -1,0 +1,46 @@
+[
+  {
+    "connection" : 936531,
+    "name" : "foreign-alpha-zero",
+    "observed" : {
+      "alpha" : 1,
+      "alphaError" : 0,
+      "orderError" : 0,
+      "ordered" : 1
+    },
+    "returnCode" : 0
+  },
+  {
+    "connection" : 936531,
+    "name" : "foreign-order-out",
+    "observed" : {
+      "alpha" : 1,
+      "alphaError" : 0,
+      "orderError" : 0,
+      "ordered" : 1
+    },
+    "returnCode" : 1000
+  },
+  {
+    "connection" : 943615,
+    "name" : "foreign-alpha-zero",
+    "observed" : {
+      "alpha" : 1,
+      "alphaError" : 0,
+      "orderError" : 0,
+      "ordered" : 1
+    },
+    "returnCode" : 0
+  },
+  {
+    "connection" : 943615,
+    "name" : "foreign-order-out",
+    "observed" : {
+      "alpha" : 1,
+      "alphaError" : 0,
+      "orderError" : 0,
+      "ordered" : 1
+    },
+    "returnCode" : 268435459
+  }
+]

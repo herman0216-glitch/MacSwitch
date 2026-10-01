@@ -1,0 +1,19 @@
+{
+  "accessibilityTrustedNoPrompt" : "false",
+  "activeDisplays" : "1",
+  "build" : "26A434",
+  "candidateCount" : "1",
+  "desktopCandidates" : "window=62,pid=1275,layer=-2147483603,display=1",
+  "desktopIconLayer" : "-2147483603",
+  "developmentTarget" : "26A434",
+  "displayQueryError" : "0",
+  "finderIdentityVerified" : "true",
+  "finderMutationCount" : "0",
+  "finderPID" : "1275",
+  "finderSignatureStatus" : "0",
+  "finderWindowLayers" : "952:0;66:0;65:0;64:0;63:0;62:-2147483603;119:0",
+  "os" : "Version 27.0.1 (Build 26A434)",
+  "screenCaptureAllowedNoPrompt" : "false",
+  "symbols" : "SLSMainConnectionID,SLSGetWindowAlpha,SLSSetWindowAlpha,SLSOrderWindow,SLSWindowIsOrderedIn,SLSGetWindowOwner,SLSConnectionGetPID",
+  "targetIdentification" : "READ ONLY; bundle identity + Apple signature + PID + exact layer + display bounds; not an ownership grant"
+}

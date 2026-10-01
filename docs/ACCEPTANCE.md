@@ -1,5 +1,7 @@
 # MacSwitch 本机验收记录
 
+这份记录对应 2026-09-13 至 14 的旧版本。当前深色模式实现见 [原生过渡验收](ACCEPTANCE-appearance-transition.md)，当前桌面图标实现见 [系统桌面隐藏验收](ACCEPTANCE-desktop-native.md)；旧版 System Events 与 `CreateDesktop` 验收仅为历史证据。
+
 验收日期：2026-09-13 至 2026-09-14（Asia/Shanghai）。范围依据随附 `PLAN.md`，仅针对本机个人使用；不包含公开发行、公证或其他机型兼容认证。
 
 ## 环境与交付
@@ -55,3 +57,8 @@
 - 撤销授权后的错误路径由自动测试覆盖；实机覆盖权限关闭失败、用户允许后成功，没有再次撤销用户已授予的权限。
 - Finder 偏好属于兼容实现。macOS 升级后应重复隐藏与恢复实测；恢复命令见 `README.md`。
 - 本地 ad-hoc 签名重新构建可能触发系统重新确认自动化权限；本轮授权由用户操作。
+# 2026-09-30：解除当前 build 的版本禁用
+
+按用户明确要求，将 macOS 27.0.1（`26A434`）加入桌面隐藏、原生外观及清洁模式的允许列表，保留 `26A428` 和未知 build 限制。原生外观仍校验方法编码与符号，清洁模式仍检查触发角保护及辅助功能权限；桌面功能仍使用既有 WindowManager 后端，未接入第一阶段失败的跨进程窗口控制方案。
+
+验证：`script/test.sh` 通过，Swift Testing 118 项、13 个套件，另有 XCTest 7 项，0 失败；结果包 `build/TestResults-20260930-214155.xcresult`。`script/build_and_run.sh --verify` 构建并启动 `dist/MacSwitch.app`，实际运行 PID=10757，日志确认 `Native appearance enabled, build=26A434`。通过应用“开关”菜单只读核对，深色模式、隐藏桌面图标、屏幕键盘清洁三项均不再显示 disabled；没有点击功能菜单项。`26A434` 的外观切换、桌面交互、真实触控板及恢复验收仍为 `NOT RUN`，本次不以解除禁用和构建通过代替实机验收。

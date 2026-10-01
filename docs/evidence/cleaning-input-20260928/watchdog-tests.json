@@ -1,0 +1,17 @@
+{
+  "cancel": {
+    "returncode": 0,
+    "expected": 0,
+    "passed": true
+  },
+  "term": {
+    "returncode": -15,
+    "expected": -15,
+    "passed": true
+  },
+  "kill": {
+    "returncode": -9,
+    "expected": -9,
+    "passed": true
+  }
+}

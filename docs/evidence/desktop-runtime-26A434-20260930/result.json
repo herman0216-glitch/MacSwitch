@@ -1,0 +1,18 @@
+{
+  "build" : "26A434",
+  "controllerSIGKILLRecovery" : "PASS (cooperative test-window owner only)",
+  "developmentTarget" : "26A434",
+  "finderMutations" : "0",
+  "foreignMutationsRejected" : "false",
+  "foreignOrderCallsRejected" : "true",
+  "foreignWindowUnchanged" : "true",
+  "independentTimeoutRecovery" : "PASS (cooperative test-window owner only)",
+  "observationDelayMilliseconds" : "200 per mutation, plus owner-side state at 6-second recovery deadline",
+  "ownedWindowABIAndRestore" : "PASS",
+  "phaseTwo" : "NOT STARTED",
+  "physicalAcceptance" : "NOT RUN",
+  "preferencesAndSystemPIDsUnchanged" : "true",
+  "realDesktopRecovery" : "NOT RUN",
+  "status" : "NO_GO_DIRECT_CROSS_PROCESS_CONTROL",
+  "zeroReturnWithoutStateChange" : "true"
+}

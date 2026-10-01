@@ -1,0 +1,48 @@
+{
+  "devicesAndConfigurations": [
+    {
+      "device": {
+        "architecture": "arm64",
+        "deviceId": "REDACTED",
+        "deviceName": "My Mac",
+        "modelName": "MacBook Air",
+        "osBuildNumber": "26A428",
+        "osVersion": "27.0",
+        "platform": "macOS"
+      },
+      "expectedFailures": 0,
+      "failedTests": 0,
+      "passedTests": 121,
+      "skippedTests": 0,
+      "testPlanConfiguration": {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription": "MacSwitch · Built with macOS 27.0",
+  "expectedFailures": 0,
+  "failedTests": 0,
+  "finishTime": 1790659483.728,
+  "passedTests": 119,
+  "result": "Passed",
+  "runtimeWarnings": [],
+  "skippedTests": 0,
+  "startTime": 1790659477.947,
+  "statistics": [
+    {
+      "subtitle": "4 test runs",
+      "title": "2 tests ran with dynamic parameters"
+    }
+  ],
+  "testFailures": [],
+  "title": "Test - MacSwitch",
+  "topInsights": [
+    {
+      "category": "Longest Test Runs",
+      "impact": "93% of duration",
+      "text": "2 longest test runs with outlier durations exceeding 0.45s (three standard deviations)"
+    }
+  ],
+  "totalTestCount": 119
+}

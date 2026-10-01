@@ -58,13 +58,14 @@ private struct SwitchRow: View {
     let feature: FeatureID
     let model: AppModel
     private var state: FeatureState { model.coordinator.state(feature) }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 12) {
                 Image(systemName: feature.symbol)
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundStyle(state.snapshot.isEnabled ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(state.displayedEnabled ? Color.accentColor : Color.secondary)
                     .frame(width: 28)
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
@@ -76,14 +77,16 @@ private struct SwitchRow: View {
                     }
                 }
                 Spacer(minLength: 6)
-                if state.isBusy {
-                    ProgressView().controlSize(.small).accessibilityLabel("正在处理")
-                } else if state.phase == .succeeded {
-                    Image(systemName: "checkmark").font(.caption).foregroundStyle(.secondary).help("已更新")
+                ZStack {
+                    if state.isBusy {
+                        ProgressView().controlSize(.small).accessibilityLabel("正在处理")
+                    }
                 }
-                Toggle(feature.title, isOn: Binding(get: { state.snapshot.isEnabled }, set: { model.coordinator.setEnabled($0, for: feature) }))
+                .frame(width: 16, height: 16)
+                Toggle(feature.title, isOn: Binding(get: { state.displayedEnabled }, set: { model.coordinator.setEnabled($0, for: feature) }))
                     .labelsHidden().toggleStyle(.switch).controlSize(.small)
-                    .disabled(state.isBusy || state.isUnsupported || !state.hasRead)
+                    .animation(reduceMotion ? nil : .default, value: state.displayedEnabled)
+                    .disabled((state.isBusy && feature != .appearance) || state.isUnsupported || !state.hasRead)
                     .accessibilityIdentifier("toggle.\(feature.rawValue)")
             }
             if feature == .keepAwake {
@@ -101,6 +104,19 @@ private struct SwitchRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Label(message, systemImage: "exclamationmark.circle")
                         .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    if feature == .desktop, case .unauthorized = state.phase {
+                        Button("打开文件与文件夹权限") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }.font(.caption).buttonStyle(.link)
+                    } else if feature == .desktop {
+                        Button("打开桌面与程序坞设置") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.Desktop-Settings.extension") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }.font(.caption).buttonStyle(.link)
+                    }
                     if !state.isUnsupported {
                         if feature == .cleaning {
                             Button("打开辅助功能设置") {

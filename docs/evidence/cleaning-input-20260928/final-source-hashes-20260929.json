@@ -1,0 +1,9 @@
+{
+  "MacSwitch/Services/CleaningService.swift": "e2acaa82ba9017aa55ac94070a0eae027146e052e75499ed9cdd414bfeb2c4a4",
+  "MacSwitch/Services/CleaningInputBackend.swift": "2e4535cfd3c818c5c7b12cf4df12482cad25d82cb87c18867f058ded57889f42",
+  "MacSwitch/Services/CleaningInputPolicy.swift": "ab8f0ce1549aaa1e211e767b9217c0fadc0cfa50e24364f2109808b4c3737fed",
+  "MacSwitch/Services/CleaningCompatibility.swift": "fad866c7e420103ee1808da0a50af7cd653a4f33d3c5636013f3b53f3427efed",
+  "MacSwitch/Support/CleaningValidation.swift": "d188dc27f6f37d3502f461a70526f8f94be0b15d17ef6a1f84e48d66a42a036a",
+  "MacSwitchTests/CleaningServiceTests.swift": "9f956da425293906b764b8f27e878c0e4481c99e52ac9d783db44c780e627fbc",
+  "MacSwitchTests/CleaningInputTests.swift": "73954e3dc03641f95ee9adc60af33857ea09a6c54d74d296e25328710b8b1f0d"
+}
